@@ -202,7 +202,8 @@ byte matrix[matrixSize][matrixSize] = {
   0, 0, 0, 0, 0, 0, 0, 0
 };
 
-byte noOfMoves[4] = {
+const byte noOfMovesSize = 4;
+byte noOfMoves[noOfMovesSize] = {
   8, 8, 8, 8
 };
 
@@ -280,15 +281,15 @@ byte formsArray[][8] = {
   B00000}
 };
 
-
+int currentScore = 0;
 
 void setup() {
   // the zero refers to the MAX7219 number, it is zero for 1 chip
   lc.shutdown(0, false); // turn off power saving, enables display
   lc.setIntensity(0, matrixBrightness); // sets brightness (0~15 possible values)
   lc.clearDisplay(0);// clear screen
-  pinMode(dataPin, OUTPUT);
-  pinMode(latchPin, OUTPUT);
+  pinMode(dinPin, OUTPUT);
+  pinMode(loadPin, OUTPUT);
   pinMode(clockPin, OUTPUT);
   pinMode(swPin, INPUT_PULLUP);
   pinMode(xPin, INPUT);
@@ -390,11 +391,11 @@ void loop() {
       case 7:
         lcd.clear();
         lcd.setCursor(0, 0);
-        lcd.print("HEARTS: ");
+        lcd.print("HEARTS: 3");
         lcd.setCursor(8, 0);
         lcd.print(hearts);
         lcd.setCursor(0, 1);
-        lcd.print("NO OF MOVES: ???");
+        lcd.print("SCORE: 0");
         testMenuOrGame = false;
         break;
 
@@ -411,26 +412,56 @@ void loop() {
       Serial.println("-----");
       Serial.println(hearts);
       Serial.println("-----");
+      
+      currentScore = 0;
+      for( int index = 0; index < noOfMovesSize; index++) {
+        currentScore += noOfMoves[index];
+      }
+      
       if (onLightedLed == true) {
         hearts--;              // jucatorul pierde o viata
         raiseHeartsNumber = 0;  // resetam nr de runde castigate fara oprire
         sadFace();
+        
       } else {
         raiseHeartsNumber++;
         happyFace();
+        
       }
       if (raiseHeartsNumber == heartRaiseThreshold) {
         hearts++;
       }
+      
+            
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("HEARTS: ");
+      lcd.setCursor(8, 0);
+      lcd.print(hearts);
+      lcd.setCursor(0, 1);
+      lcd.print("SCORE: ");
+      lcd.setCursor(7, 1);
+      lcd.print(currentScore);
+
       if (hearts == 0) {
         lcd.clear();
         updateMenuDisplay();
         menuState = 0;
         testMenuOrGame = true;
         deadFace();
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("CONGRATS!");
+        lcd.setCursor(0, 1);
+        lcd.print("SCORE: ");
+        lcd.setCursor(7, 1);
+        lcd.print(currentScore);
+        delay(3000);
+        updateMenuDisplay();
+
       }
-      lc.clearDisplay(0);
-      ////////
+
+      
       
       switch (difficulty) {
         case 0:  // Super Easy (Tutorial)
@@ -1024,7 +1055,7 @@ void prepareSetupOnStart() {
   lcd.print("  ");
   lcd.write(byte(0));
 
-  delay(1000);
+  delay(5000);
 
   lcd.setCursor(0, 0);
   lcd.write(byte(0));
@@ -1034,7 +1065,7 @@ void prepareSetupOnStart() {
 //  lcd.write(byte(0));
   lcd.print(" SLEEPY STUDIOS ");
 
-  delay(1000);
+  delay(3000);
   
   lcd.clear();
   enterMenu();
@@ -1043,15 +1074,13 @@ void prepareSetupOnStart() {
 void enterMenu() {
   lcd.createChar(0, formsArray[3]);
   lcd.createChar(1, formsArray[5]);
-  lcd.createChar(2, formsArray[6]);
   upOrDown = true;
   lcd.setCursor(0, 0);
   lcd.write(byte(0));
   lcd.print("START GAME");
   lcd.setCursor(1, 1);
   lcd.print("HIGHSCORES");
-  lcd.setCursor(15, 1);
-  lcd.write(byte(2));
+
 }
 
 
