@@ -6,6 +6,47 @@ const int dinPin = 12;
 const int clockPin = 11;
 const int loadPin = 10;
 
+
+//change name variables
+const byte noOfLetters = 27;
+bool changeNameChanged = false;
+const byte playerNameCharIndexSize = 5;
+byte playerNameCharIndex[playerNameCharIndexSize];
+bool stateChangeName = true;
+byte nameIndex = 0;
+
+const char alphabet[noOfLetters] = {
+  'A', 
+  'B', 
+  'C', 
+  'D', 
+  'E', 
+  'F', 
+  'G', 
+  'H', 
+  'I', 
+  'J', 
+  'K', 
+  'L', 
+  'M', 
+  'N', 
+  'O', 
+  'P', 
+  'Q', 
+  'R', 
+  'S', 
+  'T',
+  'U', 
+  'V', 
+  'W',
+  'X',
+  'Y',
+  'Z',
+  '.'
+};
+
+//const int contrastPin = 9;
+const int brightnessPin = 9;
 const int RS = 7;
 const int enable = 6;
 const int d4 = 5;
@@ -20,18 +61,23 @@ const int swPin = 8;
 
 
 // settings variables
+bool brightnessChanged = false;
+byte brightnessShowValue = 2;
+byte brightness = 160;
+byte lastBrightness = 160;
 
+byte contrast = 50;
+byte lastContrast = 50;
+bool contrastChanged = false;
+byte contrastShowValue = 5;
+bool settingsChanged = false;
 const byte settingsArrowArraySize = 3;
-bool settingsArrowArray[settingsArrowArraySize] = {
-  true, false, false
-};
+byte xSettingsArrowLastPos = 0;
+byte xSettingsArrowPos = 0;
 
 char* settings[settingsArrowArraySize] = {
-  "BACK TO MENU",
-  "LUMINOSITY",
-  "CONTRAST"
+  "BACK TO MENU", "BRIGHTNESS", "CONTRAST"//, "CHANGE NAME?"
 };
-
 
 
 // highscores variables
@@ -40,10 +86,6 @@ bool highscoresChanged = false;
 byte xHighscoresArrowPos = 0;
 byte xHighscoresArrowLastPos = 0;
 const byte highscoresArrowArraySize = 13;
-
-bool highscoresArrowArray[highscoresArrowArraySize] = {
-  true, false, false, false, false, false, false, false, false, false, false, false, false
-};
 
 char* highscores[highscoresArrowArraySize] = {
   "BACK TO MENU",
@@ -62,12 +104,9 @@ byte xAboutArrowLastPos = 0;
 const byte aboutArrowArraySize = 10;
 bool aboutChanged = false;
 
-bool aboutArrowArray[aboutArrowArraySize] = {
-  true, false, false, false, false, false, false, false, false, false
-};
 
 
-char* about[aboutArrowArraySize] = {
+const char* about[aboutArrowArraySize] = {
     "BACK TO MENU",
     "X  BOMBERMAN  X",
     "X  BROUGHT TO X",
@@ -85,12 +124,12 @@ bool plotChanged = false;
 byte xPlotArrowPos = 0;
 byte xPlotArrowLastPos = 0;
 const byte plotArrowArraySize = 8;
+//
+//bool plotArrowArray[plotArrowArraySize] = {
+//  true, false, false, false, false, false, false, false
+//};
 
-bool plotArrowArray[plotArrowArraySize] = {
-  true, false, false, false, false, false, false, false
-};
-
-char* plot[plotArrowArraySize] = {
+const char* plot[plotArrowArraySize] = {
     "BACK TO MENU",      
     "Fereste-te de  ",
     "de bombele",
@@ -110,22 +149,12 @@ bool upOrDown = true;
 bool menuChanged = false;
 const byte noOfDiff = 6;
 
-bool changeNameChanged = false;
-char* playerName[5];
-byte playerNameCharIndex[5];
 
-char* alphabet[26] = {
-  "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"
-};
-bool menuArrowArray[menuArrowArraySize] = {
-  false, false, false, false, false
-};
-
-char* menuList[menuArrowArraySize] = {
+const char* menuList[menuArrowArraySize] = {
   "START GAME", "HIGHSCORES", "PLOT", "SETTINGS", "ABOUT"
 };
 
-char* difficulties[noOfDiff] = {
+const char* difficulties[noOfDiff] = {
   "SUPER EASY", "EASY", "NORMAL", "HARD", "GOD MODE", "GOD MODE"
 };
 
@@ -278,10 +307,35 @@ byte formsArray[][8] = {
   B00000,
   B00000,
   B00000,
+  B00000},
+
+ {B11111,  // FULL CELL           8
+  B11111,
+  B11111,
+  B11111,
+  B11111,
+  B11111,
+  B11111,
+  B11111},
+
+ {B00000,  // check               9
+  B00000,
+  B00001,
+  B00010,
+  B10100,
+  B01000,
+  B00000,
   B00000}
 };
 
 int currentScore = 0;
+
+//void DisplayAndSetContrast(int contrast) { 
+// 
+//      lcd.setCursor(0, 0);
+//      lcd.print("hello there"); 
+//      analogWrite(contrastPin, contrast);  
+//}
 
 void setup() {
   // the zero refers to the MAX7219 number, it is zero for 1 chip
@@ -294,9 +348,14 @@ void setup() {
   pinMode(swPin, INPUT_PULLUP);
   pinMode(xPin, INPUT);
   pinMode(yPin, INPUT);
+
+//  pinMode(contrastPin, OUTPUT);    
+//  DisplayAndSetContrast(50);
+  pinMode(brightnessPin, OUTPUT);  
+  
   randomSeed(analogRead(12));
   matrix[xPos][yPos] = 1;
-  menuArrowArray[xMenuArrowPos] = true;
+//  menuArrowArray[xMenuArrowPos] = true;
   
   lcd.begin(16, 2);
   prepareSetupOnStart();
@@ -326,6 +385,7 @@ void loop() {
       case 1:
         if (millis() - lastMoved > moveInterval) {
           // game logic
+          hearts = 3;
           updateDifficulty();
           lastMoved = millis();
         }
@@ -339,7 +399,7 @@ void loop() {
       case 2:
         if (millis() - lastMoved > moveInterval) {
           // game logic
-          //FUNCTION FOR SETTINGS
+          updateChangeName();
           lastMoved = millis();
         }
         if (changeNameChanged == true) {
@@ -375,6 +435,19 @@ void loop() {
         }
         break;
 
+      case 5:
+        if (millis() - lastMoved > moveInterval) {
+          // game logic
+          updateSettingsArrow();
+          lastMoved = millis();
+        }
+        if (settingsChanged == true) {
+          // matrix display logic
+          updateSettingsDisplay();
+          settingsChanged = false;
+        }
+        break;
+
       case 6:
         if (millis() - lastMoved > moveInterval) {
           // game logic
@@ -397,6 +470,32 @@ void loop() {
         lcd.setCursor(0, 1);
         lcd.print("SCORE: 0");
         testMenuOrGame = false;
+        break;
+
+      case 8:
+        if (millis() - lastMoved > moveInterval) {
+          // game logic
+          updateBrightnessValue();
+          lastMoved = millis();
+        }
+        if (brightnessChanged == true) {
+          // matrix display logic
+          updateBrightnessDisplay();
+          brightnessChanged = false;
+        }
+        break;
+
+      case 9:
+        if (millis() - lastMoved > moveInterval) {
+          // game logic
+          updateContrastValue();
+          lastMoved = millis();
+        }
+        if (contrastChanged == true) {
+          // matrix display logic
+          updateContrastDisplay();
+          contrastChanged = false;
+        }
         break;
 
       default:
@@ -770,6 +869,454 @@ void loop() {
 
 
 
+void updateStartGameChangeNameDisplay() {
+  lcd.clear();
+  lcd.createChar(0, formsArray[3]);
+  lcd.createChar(1, formsArray[9]);
+  lcd.createChar(2, formsArray[7]);
+  
+  lcd.setCursor(0, 0);
+  lcd.print("    SET NAME    ");
+  if (nameIndex <= playerNameCharIndexSize) {
+    for (int index = 2; index < 13; index += 2) {
+      lcd.setCursor(index, 1);
+      lcd.write(byte(2));
+    }
+    lcd.setCursor(nameIndex * 2 + 2, 1);
+    lcd.write(byte(0));
+  } else {
+    lcd.setCursor(nameIndex * 2, 1);
+    lcd.write(byte(0));
+  }
+  byte col = 3;
+  for (int index = 0; index < playerNameCharIndexSize; index++) {
+    lcd.setCursor(col, 1);
+    col += 2;
+    lcd.print(alphabet[playerNameCharIndex[index]]);
+  }
+  lcd.setCursor(col, 1);
+  lcd.write(byte(1));
+}
+
+
+void updateChangeName() {
+  int xValue = analogRead(xPin);
+  int yValue = analogRead(yPin);
+  
+  reading = digitalRead(swPin);
+
+  if (reading  != previousReading) {
+    lastDebounceTime = millis();
+  }
+  
+  if (millis() - lastDebounceTime > debounceDelay) { 
+    if (previousReading != reading){
+      buttonState = reading;
+      if (buttonState == LOW){
+        if (nameIndex == playerNameCharIndexSize) {
+          upOrDown = true;
+          menuState = 7;
+        
+        } else {
+          stateChangeName = !stateChangeName;
+          
+        }
+      }
+    }   
+  }
+  
+  previousReading = reading;
+  byte lastNameIndex = nameIndex;
+  byte lastPlayerNameCharIndex = playerNameCharIndex[nameIndex];
+  
+  if (stateChangeName == true) {
+    if (yValue < maxThreshold) {
+      if (nameIndex < 6) {
+        nameIndex++;
+      } 
+    } 
+  
+    if (yValue > minThreshold) {
+      if (nameIndex > 0) {
+        nameIndex--;
+      }
+    }
+  } else {
+    if (xValue > maxThreshold) {
+      if (playerNameCharIndex[nameIndex] > 0) {
+        playerNameCharIndex[nameIndex]--;
+      } else {
+        playerNameCharIndex[nameIndex] = noOfLetters - 2;
+        Serial.println(playerNameCharIndex[nameIndex]);
+      }
+    }
+  
+    if (xValue < minThreshold) {
+      if (playerNameCharIndex[nameIndex] < noOfLetters - 2) {
+        playerNameCharIndex[nameIndex]++;
+      } else {
+        playerNameCharIndex[nameIndex] = 0;
+        Serial.println(playerNameCharIndex[nameIndex]);
+        Serial.println("---------");
+      }
+    }
+  }
+  if (lastNameIndex != nameIndex) {
+    changeNameChanged = true;
+    updateStartGameChangeNameDisplay();
+  } else if (playerNameCharIndex[nameIndex] != lastPlayerNameCharIndex) {
+    changeNameChanged = true;
+    updateStartGameChangeNameDisplay();
+  } 
+  
+  
+}
+
+
+void updateBrightnessDisplay() {
+  lcd.clear();
+  lcd.createChar(0, formsArray[4]);
+  lcd.createChar(1, formsArray[8]);
+
+  lcd.setCursor(0, 1);
+  lcd.write(byte(0));
+  
+  lcd.setCursor(1, 0);
+  lcd.print("SET BRIGHTNESS");
+
+  lcd.setCursor(1, 1);
+//  Serial.println(difficulties[difficulty]);
+  switch(brightness) {
+    case 50:
+      brightnessShowValue = 4;
+      break;
+
+    case 100:
+      brightnessShowValue = 3;
+      break;
+
+    case 160:
+      brightnessShowValue = 2;
+      break;
+
+    case 255:
+      brightnessShowValue = 1;
+      break;
+
+    default: 
+      brightnessShowValue = 5;
+      break;
+  }
+  for (int index = 1; index <= brightnessShowValue; index++) {
+    lcd.setCursor(index, 1);
+    lcd.write(byte(1));
+  }
+  
+}
+
+
+void updateBrightnessValue() {
+  int xValue = analogRead(xPin);
+  reading = digitalRead(swPin);
+
+  if (reading  != previousReading) {
+    lastDebounceTime = millis();
+  }
+  
+  if (millis() - lastDebounceTime > debounceDelay) {
+    if (previousReading != reading){
+      buttonState = reading;
+      if (buttonState == LOW){
+        //////////////////////////////////////////////////////////////////////
+        upOrDown = true;
+        updateSettingsDisplay();
+        menuState = 5;
+        
+      } 
+    }   
+  }
+  
+  previousReading = reading;
+
+  
+  lastBrightness = brightness;
+  
+  if (xValue > maxThreshold) {
+    if (brightness < 255) {
+      switch(brightness) {
+        case 0:
+          brightness = 50;
+          break;
+        case 50:
+          brightness = 100;
+          break;
+        case 100:
+          brightness = 160;
+          break;
+        case 160:
+          brightness = 255;
+          break;
+      }
+    } 
+  }
+
+  if (xValue < minThreshold) {
+    if (brightness > 0) {
+      switch(brightness) {
+        case 255:
+          brightness = 160;
+          break;
+        case 160:
+          brightness = 100;
+          break;
+        case 100:
+          brightness = 50;
+          break;
+        case 50:
+          brightness = 0;
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  if (brightness != lastBrightness) {
+    brightnessChanged = true;
+//    updateStartGameDifDisplay();
+  } 
+}
+
+
+
+void updateContrastDisplay() {
+  lcd.clear();
+  lcd.createChar(0, formsArray[4]);
+  lcd.createChar(1, formsArray[8]);
+
+  lcd.setCursor(0, 1);
+  lcd.write(byte(0));
+  
+  lcd.setCursor(1, 0);
+  lcd.print("SET CONTRAST");
+
+  lcd.setCursor(1, 1);
+//  Serial.println(difficulties[difficulty]);
+  switch(contrast) {
+    case 50:
+      contrastShowValue = 4;
+      break;
+
+    case 70:
+      contrastShowValue = 3;
+      break;
+
+    case 100:
+      contrastShowValue = 2;
+      break;
+
+    case 115:
+      contrastShowValue = 1;
+      break;
+
+    default: 
+      contrastShowValue = 5;
+      break;
+  }
+  for (int index = 1; index <= contrastShowValue; index++) {
+    lcd.setCursor(index, 1);
+    lcd.write(byte(1));
+  }
+  
+}
+
+void updateContrastValue() {
+  int xValue = analogRead(xPin);
+  reading = digitalRead(swPin);
+
+  if (reading  != previousReading) {
+    lastDebounceTime = millis();
+  }
+  
+  if (millis() - lastDebounceTime > debounceDelay) {
+    if (previousReading != reading){
+      buttonState = reading;
+      if (buttonState == LOW){
+        //////////////////////////////////////////////////////////////////////
+        upOrDown = true;
+        updateSettingsDisplay();
+        menuState = 5;
+        
+      } 
+    }   
+  }
+  
+  previousReading = reading;
+
+  
+  lastContrast = contrast;
+  
+  if (xValue > maxThreshold) {
+    if (contrast < 115) {
+      switch(contrast) {
+        case 0:
+          contrast = 50;
+          break;
+        case 50:
+          contrast = 70;
+          break;
+        case 70:
+          contrast = 100;
+          break;
+        case 100:
+          contrast = 115;
+          break;
+      }
+    } 
+  }
+
+  if (xValue < minThreshold) {
+    if (contrast > 0) {
+      switch(contrast) {
+        case 115:
+          contrast = 100;
+          break;
+        case 100:
+          contrast = 70;
+          break;
+        case 70:
+          contrast = 50;
+          break;
+        case 50:
+          contrast = 0;
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  if (contrast != lastContrast) {
+    contrastChanged = true;
+//    DisplayAndSetContrast(contrast);
+//    updateStartGameDifDisplay();
+  } 
+}
+
+
+void updateSettingsDisplay() {
+  lcd.createChar(0, formsArray[3]);
+  lcd.createChar(1, formsArray[7]);
+  
+  if (upOrDown == true) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.write(byte(0));
+    lcd.setCursor(0, 1);
+    lcd.write(byte(1));
+    for( int row = 0; row < noOfLcdRows; row++) {
+      lcd.setCursor(1, row);
+      lcd.print(settings[xSettingsArrowPos + row]);
+    }
+  } else {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.write(byte(1));
+    lcd.setCursor(0, 1);
+    lcd.write(byte(0));
+    for( int row = noOfLcdRows - 1; row >= 0; row--) {
+      lcd.setCursor(1, row - 1);
+      lcd.print(settings[xSettingsArrowPos - row]);
+    }
+  } 
+}
+
+void updateSettingsArrow() {
+  int xValue = analogRead(xPin);
+  reading = digitalRead(swPin);
+
+  if (reading  != previousReading) {
+    lastDebounceTime = millis();
+  }
+  
+  if (millis() - lastDebounceTime > debounceDelay) {
+    if (previousReading != reading){
+      buttonState = reading;
+      if (buttonState == LOW){
+        switch(xSettingsArrowPos) {
+          case 0:
+            upOrDown = true;
+            menuState = 0;
+            updateMenuDisplay();
+            break;
+
+          case 1:
+            upOrDown = true;
+            // highscores function
+            menuState = 8;
+            updateBrightnessDisplay();
+            break;
+            
+          case 2:
+            upOrDown = true;
+            // plot function
+            menuState = 9;
+             updateContrastDisplay();
+            break;
+
+          case 3:
+            upOrDown = true;
+            // settings function
+//            menuState = ?;
+//            updateChangeNameDisplay();
+            break;
+
+          default:
+            break;
+
+        }
+        if (xSettingsArrowPos == 0) {
+          menuState = 0;
+          updateMenuDisplay();
+        }
+      } 
+    }   
+  }
+  
+  previousReading = reading;
+
+  xSettingsArrowLastPos = xSettingsArrowPos;
+  if (xValue > minThreshold) {
+    if (xSettingsArrowPos < settingsArrowArraySize - 1) {
+      xSettingsArrowPos++;
+    } 
+    else {
+      xSettingsArrowPos = 0;
+    }
+    
+  }
+
+  if (xValue < maxThreshold) {
+    if (xSettingsArrowPos > 0) {
+      xSettingsArrowPos--;
+    }
+    else {
+      xSettingsArrowPos = settingsArrowArraySize - 1;
+    }
+  }
+
+  if (xSettingsArrowPos != xSettingsArrowLastPos) {
+    settingsChanged = true;
+    if (xSettingsArrowPos > xSettingsArrowLastPos) {
+      upOrDown = false;
+    } else {
+      upOrDown = true;
+    }
+    
+  }
+  
+}
+
 
 
 void updateHighscoresDisplay() {
@@ -849,8 +1396,6 @@ void updateHighscoresArrow() {
     } else {
       upOrDown = true;
     }
-    highscoresArrowArray[xHighscoresArrowLastPos] = false;
-    highscoresArrowArray[xHighscoresArrowPos] = true;
     
   }
   
@@ -936,9 +1481,6 @@ void updateAboutArrow() {
     } else {
       upOrDown = true;
     }
-    aboutArrowArray[xAboutArrowLastPos] = false;
-    aboutArrowArray[xAboutArrowPos] = true;
-    
   }
   
 }
@@ -996,8 +1538,6 @@ void updatePlotArrow() {
     } else {
       upOrDown = true;
     }
-    plotArrowArray[xPlotArrowLastPos] = false;
-    plotArrowArray[xPlotArrowPos] = true;
     
   }
   
@@ -1128,17 +1668,6 @@ void updateStartGameDifDisplay() {
   lcd.print(difficulties[difficulty]);
 }
 
-void updateStartGameChangeNameDisplay() {
-  lcd.clear();
-  lcd.createChar(0, formsArray[3]);
-  
-  lcd.setCursor(0, 0);
-  lcd.print("    SET NAME    ");
-
-  lcd.setCursor(2, 1);
-  lcd.write(byte(0));
-  
-}
 
 void updateDifficulty() {
   int xValue = analogRead(xPin);
@@ -1154,8 +1683,8 @@ void updateDifficulty() {
       if (buttonState == LOW){
         //////////////////////////////////////////////////////////////////////
         upOrDown = true;
-//        updateStartGameChangeNameDisplay();
-        menuState = 7;
+        updateStartGameChangeNameDisplay();
+        menuState = 2;
         
       } 
     }   
@@ -1207,7 +1736,7 @@ void updateMenuArrow() {
 
           case 1:
             upOrDown = true;
-            // Highscores function
+            // highscores function
             menuState = 3;
             updateHighscoresDisplay();
             break;
@@ -1216,13 +1745,14 @@ void updateMenuArrow() {
             upOrDown = true;
             // plot function
             menuState = 4;
-            updatePlotDisplay();
+             updatePlotDisplay();
             break;
 
           case 3:
             upOrDown = true;
             // settings function
             menuState = 5;
+            updateSettingsDisplay();
             break;
 
           case 4:
@@ -1231,6 +1761,7 @@ void updateMenuArrow() {
             menuState = 6;
             updateAboutDisplay();
             break;
+
         }
         
         
@@ -1268,8 +1799,7 @@ void updateMenuArrow() {
     } else {
       upOrDown = true;
     }
-    menuArrowArray[xMenuArrowLastPos] = false;
-    menuArrowArray[xMenuArrowPos] = true;
+    Serial.println("hello there");
     
   }
   
