@@ -6,6 +6,10 @@ const int dinPin = 12;
 const int clockPin = 11;
 const int loadPin = 10;
 
+// switch varianbles
+const byte startingValue = 5;
+byte currentNameIndex;
+byte goodOrBad = 0;
 
 //change name variables
 const byte noOfLetters = 27;
@@ -81,13 +85,14 @@ char* settings[settingsArrowArraySize] = {
 
 
 // highscores variables
-char* top[9];
+const byte noOfHighscores = 9;
+String top[9];
 bool highscoresChanged = false;
 byte xHighscoresArrowPos = 0;
 byte xHighscoresArrowLastPos = 0;
 const byte highscoresArrowArraySize = 13;
 
-char* highscores[highscoresArrowArraySize] = {
+String highscores[highscoresArrowArraySize] = {
   "BACK TO MENU",
   "GODE MODE:",
   top[0], top[1], top[2],
@@ -141,6 +146,7 @@ const char* plot[plotArrowArraySize] = {
   };
 
 // menu variables
+bool firstRound = true;
 const byte menuArrowArraySize = 5;
 const byte noOfLcdRows = 2;
 byte xMenuArrowLastPos = 0;
@@ -148,6 +154,7 @@ byte xMenuArrowPos = 0;
 bool upOrDown = true;
 bool menuChanged = false;
 const byte noOfDiff = 6;
+bool changeAfterGameDisplayOnce = true;
 
 
 const char* menuList[menuArrowArraySize] = {
@@ -171,19 +178,20 @@ const int numLcdRows = 2;
 const int noOfTryings = 50;
 const int minThreshold = 200;
 const int maxThreshold = 600;
-const int rows = 8;
-const int cols = 8;
+
 LedControl lc = LedControl(dinPin, clockPin, loadPin, 1); //DIN, CLK, LOAD, No. DRIVER
  
-const int n = 8;
+//const int n = 8;
 
+int counterLevelBasedOnDiff;
 byte lastDifficulty = 2;
 bool difficultyChanged = false;
 int difficulty = 2;  // 0 - Super Easy ; 1 - Easy ; 2 - Normal ; 3 - Hard ; 4 - God Mode 
 byte matrixBrightness = 2;
 bool testMenuOrGame = true;
 
-byte hearts = 3;
+const byte heartsOnStart = 3;
+byte hearts = heartsOnStart;
 byte raiseHeartsNumber = 0;
 byte heartRaiseThreshold = 15;
 
@@ -194,9 +202,16 @@ byte max5 = 0;
 byte max6 = 0;
 byte max7 = 0;
 
-const long levelInterval = 599999;
+int currentTop[9];
+bool playerLight = true;
+const byte playerIntervalMax = 50;
+byte playerInterval = 0;
+const long levelInterval = 2500000;
+const byte noOfLeds = 64;
+byte noOfLightedLeds = 0;
 const byte moveInterval = 200;
 unsigned long long lastMoved = 0;
+
 
 //bool testLevelChange = false;
 bool testBeginTurnedOffLed = true;
@@ -231,9 +246,10 @@ byte matrix[matrixSize][matrixSize] = {
   0, 0, 0, 0, 0, 0, 0, 0
 };
 
+const byte noOfMovesOnStart = 5;
 const byte noOfMovesSize = 4;
 byte noOfMoves[noOfMovesSize] = {
-  8, 8, 8, 8
+  noOfMovesOnStart, noOfMovesOnStart, noOfMovesOnStart, noOfMovesOnStart
 };
 
 byte formsArray[][8] = {
@@ -325,7 +341,62 @@ byte formsArray[][8] = {
   B10100,
   B01000,
   B00000,
+  B00000},
+
+ {B00000,  // heart               10
+  B01010,
+  B10101,
+  B10001,
+  B01010,
+  B00100,
+  B00000,
+  B00000},
+
+ {B10001,  // trophy              11
+  B01010,
+  B00100,
+  B01110,
+  B11111,
+  B11111,
+  B11111,
+  B01110},
+
+ {B00000,  // move up             12
+  B00100,
+  B01110,
+  B11111,
+  B00100,
+  B00100,
+  B00100,
+  B00000},
+
+ {B00000,  // move down           13
+  B00100,
+  B00100,
+  B00100,
+  B11111,
+  B01110,
+  B00100,
+  B00000},
+
+ {B00000,  // move left           14
+  B00000,
+  B00100,
+  B01100,
+  B11111,
+  B01100,
+  B00100,
+  B00000},
+
+ {B00000,  // move right          15
+  B00000,
+  B00100,
+  B00110,
+  B11111,
+  B00110,
+  B00100,
   B00000}
+ 
 };
 
 int currentScore = 0;
@@ -337,8 +408,27 @@ int currentScore = 0;
 //      analogWrite(contrastPin, contrast);  
 //}
 
+const byte noOfDigits = 10;
+byte intToChar[noOfDigits] = {
+  30, 31, 32, 33, 34, 35, 36, 37, 38, 39
+};
+
 void setup() {
   // the zero refers to the MAX7219 number, it is zero for 1 chip
+//  byte index = 0;
+//  for (int i = 0; i <= 255; i++) {
+//    EEPROM.update(i, index);
+//    index++;
+//    if (index == 1) {
+//      index = 0;
+//    }
+//  }
+
+  for (int index = 0; index < playerNameCharIndexSize; index++) {
+    playerNameCharIndex[index] = EEPROM.read(index);
+  }
+    
+  
   lc.shutdown(0, false); // turn off power saving, enables display
   lc.setIntensity(0, matrixBrightness); // sets brightness (0~15 possible values)
   lc.clearDisplay(0);// clear screen
@@ -349,15 +439,57 @@ void setup() {
   pinMode(xPin, INPUT);
   pinMode(yPin, INPUT);
 
-//  pinMode(contrastPin, OUTPUT);    
-//  DisplayAndSetContrast(50);
   pinMode(brightnessPin, OUTPUT);  
   
   randomSeed(analogRead(12));
   matrix[xPos][yPos] = 1;
-//  menuArrowArray[xMenuArrowPos] = true;
   
   lcd.begin(16, 2);
+
+  byte eepromAdress = 0;
+
+  eepromAdress = 5;
+  String auxWrite = "";
+  byte currentTopIndex = 0;
+  for (int index = 0; index < noOfHighscores; index++) {
+    for (int indexx = 0; indexx < 5; indexx++) {
+      auxWrite += alphabet[EEPROM.read(eepromAdress)];        
+      eepromAdress++;
+    }
+    
+    auxWrite += "      ";
+    int multiplyingFactor = 1000;
+    for (int indexx = 12; indexx < 16; indexx++) {
+      auxWrite += String(EEPROM.read(eepromAdress));
+//      Serial.println("----");
+//      Serial.println(EEPROM.read(eepromAdress));
+//      Serial.println(String(EEPROM.read(eepromAdress)));
+//      Serial.println("----");
+      currentTop[currentTopIndex] += multiplyingFactor * int(EEPROM.read(eepromAdress));
+      multiplyingFactor /= 10;
+      eepromAdress++;
+    }
+    Serial.print("currentTop: ");
+    Serial.println(currentTop[currentTopIndex]);
+    currentTopIndex++;
+    top[index] = auxWrite;
+    auxWrite = "";
+  }
+
+  byte highscoresIndex = 2;
+  byte topIndex = 0;
+  for (int index = 0; index < 3; index++) {
+//    for (int indexx = 2; indexx >= 0 ; indexx--) {
+    for (int indexx = 0; indexx < 3; indexx++) {
+      highscores[highscoresIndex] = top[topIndex]; 
+      topIndex++;
+      highscoresIndex++;
+    }
+    highscoresIndex++;
+  }
+  topIndex = 0;
+  highscoresIndex = 0;
+  eepromAdress = 0;
   prepareSetupOnStart();
   
   Serial.begin(9600);  
@@ -385,7 +517,6 @@ void loop() {
       case 1:
         if (millis() - lastMoved > moveInterval) {
           // game logic
-          hearts = 3;
           updateDifficulty();
           lastMoved = millis();
         }
@@ -463,13 +594,43 @@ void loop() {
 
       case 7:
         lcd.clear();
+        firstRound = true;
+        hearts = heartsOnStart;
+
+        currentNameIndex = 0;
+        
+        for (byte eepromIndex = 0; eepromIndex < startingValue; eepromIndex++) {
+          EEPROM.update(eepromIndex, playerNameCharIndex[currentNameIndex]);
+          currentNameIndex++;
+        }
+        
+        lc.clearDisplay(0);
         lcd.setCursor(0, 0);
-        lcd.print("HEARTS: 3");
-        lcd.setCursor(8, 0);
-        lcd.print(hearts);
-        lcd.setCursor(0, 1);
-        lcd.print("SCORE: 0");
+//        lcd.print("HEARTS: ");
+//        lcd.setCursor(8, 0);
+//        lcd.print(hearts);
+//        lcd.setCursor(0, 1);
+        lcd.print("DODGE THE LEDS!");
         testMenuOrGame = false;
+        for (int row = 0; row < matrixSize; row++) {
+          for (int col = 0; col < matrixSize; col++) {
+            matrix[row][col] = 0;
+          }
+        }
+        xPos = 0;
+        xLastPos = 0;
+        yPos = 0;
+        yLastPos = 0;
+        counterLevelDuration = 0;
+        matrixChanged = true;
+        onLightedLed = 0;
+        lastMoved = 0;
+//        Serial.println("wth");
+        if (matrixChanged == true) {
+        // matrix display logic
+          updateMatrix();
+          matrixChanged = false;
+        }
         break;
 
       case 8:
@@ -498,78 +659,246 @@ void loop() {
         }
         break;
 
+      case 10:
+        if (changeAfterGameDisplayOnce == true) {
+          deadFace();
+        
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          if (difficulty >= 2) {
+            if (goodOrBad > 0) {
+              lcd.print("CONGRATULATIONS!");
+            } else {
+              lcd.print("GL NEXT TIME!");
+            }
+            lcd.setCursor(0, 1);
+            if (goodOrBad == 0) {
+              lcd.print("SCORE: ");
+              lcd.setCursor(7, 1);
+              lcd.print(currentScore);
+            } else if (goodOrBad == 1) {
+              lcd.print("NEW TOP1: ");
+              lcd.setCursor(10, 1);
+              lcd.print(currentScore);
+            } else if (goodOrBad == 2) {
+              lcd.print("NEW TOP2: ");
+              lcd.setCursor(10, 1);
+              lcd.print(currentScore);
+            } else if (goodOrBad == 3) {
+              lcd.print("NEW TOP3: ");
+              lcd.setCursor(10, 1);
+              lcd.print(currentScore);
+            }
+          } else {
+            lcd.print("CONGRATULATIONS!");
+            lcd.setCursor(0, 1);
+            lcd.print("SCORE: ");
+            lcd.setCursor(7, 1);
+            lcd.print(currentScore);
+          }
+          changeAfterGameDisplayOnce = false;
+        }
+        
+                
+        for (int index = 0; index < noOfMovesSize; index++) {
+          noOfMoves[index] = noOfMovesOnStart;
+        }
+        
+        reading = digitalRead(swPin);
+
+        if (reading  != previousReading) {
+          lastDebounceTime = millis();
+        }
+        
+        if (millis() - lastDebounceTime > debounceDelay) { 
+          if (previousReading != reading){
+            buttonState = reading;
+            if (buttonState == LOW){
+              changeAfterGameDisplayOnce = true;
+              lc.clearDisplay(0);
+              updateMenuDisplay();
+              menuState = 0;
+            }
+          }   
+        }
+        
+        previousReading = reading;
+        break;
+        
       default:
         break;
     }
+    Serial.println(menuState);
     
-  } else {
-    counterLevelDuration++;
+  } else {    
+    counterLevelDuration += counterLevelBasedOnDiff;
+    playerInterval++;
+    updatePlayerLed();
+//    Serial.println(counterLevelDuration);
     
-    if (counterLevelDuration >= levelInterval) {
+    if (counterLevelDuration >= levelInterval) { // || firstRound == true) {
       ////////
-      lc.clearDisplay(0);
-      Serial.println("-----");
-      Serial.println(hearts);
-      Serial.println("-----");
       
-      currentScore = 0;
-      for( int index = 0; index < noOfMovesSize; index++) {
-        currentScore += noOfMoves[index];
-      }
-      
-      if (onLightedLed == true) {
-        hearts--;              // jucatorul pierde o viata
-        raiseHeartsNumber = 0;  // resetam nr de runde castigate fara oprire
-        sadFace();
+      if (firstRound != true) {
+        lc.clearDisplay(0);
+//        Serial.println("-----");
+//        Serial.println(hearts);
+//        Serial.println("-----");
+        
+        currentScore = 0;
+        for( int index = 0; index < noOfMovesSize; index++) {
+          currentScore += noOfMoves[index];
+        }
+        
+        if (onLightedLed == true) {
+          hearts--;              // jucatorul pierde o viata
+          raiseHeartsNumber = 0;  // resetam nr de runde castigate fara oprire
+          sadFace();
+          
+        } else {
+          raiseHeartsNumber++;
+          happyFace();
+          
+        }
+        if (raiseHeartsNumber == heartRaiseThreshold && hearts < 5) {
+          hearts++;
+          raiseHeartsNumber = 0;
+        }
+        
+        
+        lcd.clear();
+        lcd.createChar(10, formsArray[10]); // heart
+        lcd.createChar(11, formsArray[11]); // medal
+        lcd.createChar(12, formsArray[12]); // up
+        lcd.createChar(13, formsArray[13]); // down
+        lcd.createChar(14, formsArray[14]); // left
+        lcd.createChar(15, formsArray[15]); // right
+        
+        for (byte index = 1; index <= hearts; index++) {
+          lcd.setCursor(index, 0);
+          lcd.write(byte(10));
+        }
+        
+        lcd.setCursor(7, 0);
+        lcd.write(byte(11));
+        lcd.setCursor(8, 0);
+        lcd.print(currentScore);
+        byte lcdCol = 0;
+        for (byte index = 0; index <= noOfMovesSize; index++) {
+          lcd.setCursor(lcdCol, 1);
+          lcd.write(byte(12 + index));
+          lcd.setCursor(lcdCol + 1, 1);
+          lcd.print(noOfMoves[index]);
+          lcdCol += 4;
+        }
+  
+        if (hearts == 0) {
+          byte auxDiff = difficulty;
+          bool hsEnabled = true;
+          switch(difficulty) {
+            case 2:
+              auxDiff = 4;
+              break;
+            case 3:
+              auxDiff = 3;
+              break;
+            case 4:
+              auxDiff = 2;
+              break;
+
+            default:
+              hsEnabled = false;
+              break;
+          }
+          if (hsEnabled == true) {
+            if (currentScore > currentTop[(auxDiff - 2) * 3]) {
+              goodOrBad = 1;
+              updateEeprom((auxDiff - 2) * 3 + 2, currentTop[(auxDiff - 2) * 3 + 1]);
+              updateEeprom((auxDiff - 2) * 3 + 1, currentTop[(auxDiff - 2) * 3]);
+              updateEeprom((auxDiff - 2) * 3, currentScore);
+            } else if (currentScore > currentTop[(auxDiff - 2) * 3 + 1]) {
+              goodOrBad = 2;
+              updateEeprom((auxDiff - 2) * 3 + 2, currentTop[(auxDiff - 2) * 3 + 1]);
+              updateEeprom((auxDiff - 2) * 3 + 1, currentScore);
+            } else if (currentScore > currentTop[(auxDiff - 2) * 3 + 2]) {
+              goodOrBad = 3;
+              updateEeprom((auxDiff - 2) * 3 + 2, currentScore);
+            } else {
+              goodOrBad = 0;
+            }
+  
+            byte eepromAdress = 0;
+  
+            eepromAdress = 5;
+            String auxWrite = "";
+            byte currentTopIndex = 0;
+  
+            for (int index = 0; index < noOfHighscores; index++) {
+              currentTop[index] = 0;
+            }
+            
+            for (int index = 0; index < noOfHighscores; index++) {
+              for (int indexx = 0; indexx < 5; indexx++) {
+                auxWrite += alphabet[EEPROM.read(eepromAdress)];        
+                eepromAdress++;
+              }
+              
+              auxWrite += "      ";
+              int multiplyingFactor = 1000;
+              for (int indexx = 12; indexx < 16; indexx++) {
+                auxWrite += String(EEPROM.read(eepromAdress));
+        //        Serial.println("----");
+        //        Serial.println(EEPROM.read(eepromAdress));
+        //        Serial.println(String(EEPROM.read(eepromAdress)));
+        //        Serial.println("----");
+                currentTop[currentTopIndex] += multiplyingFactor * int(EEPROM.read(eepromAdress));
+                multiplyingFactor /= 10;
+                eepromAdress++;
+              }
+              Serial.print("currentTop: ");
+              Serial.println(currentTop[currentTopIndex]);
+            
+              currentTopIndex++;
+              top[index] = auxWrite;
+              auxWrite = "";
+            }
+          
+          
+            byte highscoresIndex = 2;
+            byte topIndex = 0;
+            for (int index = 0; index < 3; index++) {
+              for (int indexx = 0; indexx < 3; indexx++) {
+                highscores[highscoresIndex] = top[topIndex]; 
+                topIndex++;
+                highscoresIndex++;
+              }
+              highscoresIndex++;
+            }
+            topIndex = 0;
+            highscoresIndex = 0;
+            eepromAdress = 0;
+
+          }  
+          
+            
+          testMenuOrGame = true;
+          menuState = 10;
+          lc.clearDisplay(0);
+        }
         
       } else {
-        raiseHeartsNumber++;
-        happyFace();
-        
-      }
-      if (raiseHeartsNumber == heartRaiseThreshold) {
-        hearts++;
-      }
-      
-            
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("HEARTS: ");
-      lcd.setCursor(8, 0);
-      lcd.print(hearts);
-      lcd.setCursor(0, 1);
-      lcd.print("SCORE: ");
-      lcd.setCursor(7, 1);
-      lcd.print(currentScore);
-
-      if (hearts == 0) {
-        lcd.clear();
-        updateMenuDisplay();
-        menuState = 0;
-        testMenuOrGame = true;
-        deadFace();
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("CONGRATS!");
-        lcd.setCursor(0, 1);
-        lcd.print("SCORE: ");
-        lcd.setCursor(7, 1);
-        lcd.print(currentScore);
-        delay(3000);
-        updateMenuDisplay();
-
+        firstRound = false;
       }
 
-      
       
       switch (difficulty) {
         case 0:  // Super Easy (Tutorial)
-          randNumber = random(2,4);   // random(2, 8);
+          randNumber = random(2,4);     // random(2, 8);
           max2 = 6;
           max3 = 2;
           break;
         case 1:  // Easy
-          randNumber = random(2,5);   // random(2, 8);
+          randNumber = random(2,5);     // random(2, 8);
           max2 = 6;
           max3 = 4;
           break;
@@ -585,7 +914,7 @@ void loop() {
           break;
           
         case 3:  // Hard
-          randNumber = random(2,8);   // random(2, 8);
+          randNumber = random(2,8);     // random(2, 8);
           max2 = 16;
           max3 = 4;
           max4 = 4;
@@ -595,7 +924,7 @@ void loop() {
           break;
           
         default:  // God Mode
-          randNumber = random(2,4);   // random(2, 8);
+          randNumber = random(2,4);     // random(2, 8);
           max2 = 16;
           max3 = 4;
           max4 = 4;
@@ -639,9 +968,10 @@ void loop() {
                       }
                     }
                   }
-                  if (availabilityTest == false) {
+                  if (availabilityTest == false || noOfLightedLeds + 4 >= noOfLeds) {
                     noOfFailedTryings++;
                   } else {
+                    noOfLightedLeds += 4;
                     for(int row = lineBegin; row <= lineBegin + 1; row++) {
                       for(int col = colBegin; col <= colBegin + 1; col++) {
                         if (xPos == row && yPos == col) {
@@ -677,9 +1007,10 @@ void loop() {
                       }
                     }
                   }
-                  if (availabilityTest == false) {
+                  if (availabilityTest == false || noOfLightedLeds + 9 >= noOfLeds) {
                     noOfFailedTryings++;
                   } else {
+                    noOfLightedLeds += 9;
                     for(int row = lineBegin; row <= lineBegin + 2; row++) {
                       for(int col = colBegin; col <= colBegin + 2; col++) {
                         if (xPos == row && yPos == col) {
@@ -714,9 +1045,10 @@ void loop() {
                       }
                     }
                   }
-                  if (availabilityTest == false) {
+                  if (availabilityTest == false || noOfLightedLeds + 16 >= noOfLeds) {
                     noOfFailedTryings++;
                   } else {
+                    noOfLightedLeds += 16;
                     for(int row = lineBegin; row <= lineBegin + 3; row++) {
                       for(int col = colBegin; col <= colBegin + 3; col++) {
                         if (xPos == row && yPos == col) {
@@ -751,9 +1083,10 @@ void loop() {
                       }
                     }
                   }
-                  if (availabilityTest == false) {
+                  if (availabilityTest == false || noOfLightedLeds + 25 >= noOfLeds) {
                     noOfFailedTryings++;
                   } else {
+                    noOfLightedLeds += 25;
                     for(int row = lineBegin; row <= lineBegin + 4; row++) {
                       for(int col = colBegin; col <= colBegin + 4; col++) {
                         if (xPos == row && yPos == col) {
@@ -787,9 +1120,10 @@ void loop() {
                       }
                     }
                   }
-                  if (availabilityTest == false) {
+                  if (availabilityTest == false || noOfLightedLeds + 36 >= noOfLeds) {
                     noOfFailedTryings++;
                   } else {
+                    noOfLightedLeds += 36;
                     for(int row = lineBegin; row <= lineBegin + 5; row++) {
                       for(int col = colBegin; col <= colBegin + 5; col++) {
                         if (xPos == row && yPos == col) {
@@ -847,24 +1181,58 @@ void loop() {
   
         updateMatrix();
       }
+      if (difficulty == 4) {
+        counterLevelBasedOnDiff++;
+      }
     }
-      
+
+    if (millis() - lastMoved > moveInterval) {
+    // game logic
+      updatePositions();
+      lastMoved = millis();
+    }
+    
+    if (matrixChanged == true) {
+    // matrix display logic
+      updateMatrix();
+      matrixChanged = false;
+    }
     
     ///////////////////////////////////////////////////////
     
-    
-    if (millis() - lastMoved > moveInterval) {
-     // game logic
-       updatePositions();
-       lastMoved = millis();
-     }
-    
-     if (matrixChanged == true) {
-      // matrix display logic
-       updateMatrix();
-       matrixChanged = false;
-     }
   }
+}
+
+void updateEeprom(byte multiplyingIndex, int newTopValue) {
+    /// NUME      NUME LOC  PUNCTAJ NUME LOC  PUNCTAJ NUME LOC  PUNCTAJ
+    /// 0 1 2 3 4 5 6 7 8 9 10111213141516171819202122232425262728293031
+    /// S L E E P S L E E P 9 9 9 9 S L E E P 9 9 9 9 S L E E P 9 9 9 9 
+    // 5 - <14   ~   9
+    const byte multiplyingConstant = 9;
+    const byte startingValue = 5;
+    const byte nameLength = 5;
+    const byte scoreLength = 4;
+    byte currentNameIndex = 0;
+    
+    
+    for (byte eepromIndex = startingValue + (multiplyingIndex * multiplyingConstant); eepromIndex < startingValue + (multiplyingIndex * multiplyingConstant) + nameLength; eepromIndex++) {
+      EEPROM.update(eepromIndex, playerNameCharIndex[currentNameIndex]);
+      currentNameIndex++;
+    }
+    
+    int dividingFactor = 1000;
+    for (byte eepromIndex = startingValue + (multiplyingIndex * multiplyingConstant) + nameLength; eepromIndex < startingValue + (multiplyingIndex * multiplyingConstant) + nameLength + scoreLength; eepromIndex++) {
+      EEPROM.update(eepromIndex, (newTopValue / dividingFactor) % 10);
+//      Serial.println();
+//      Serial.print(newTopValue);
+//      Serial.print(" / ");
+//      Serial.print(dividingFactor);
+//      Serial.print(" % 10 = ");
+//      Serial.print((newTopValue / dividingFactor) % 10);
+//      Serial.println("----");
+      dividingFactor /= 10;
+    }
+    
 }
 
 
@@ -947,7 +1315,7 @@ void updateChangeName() {
         playerNameCharIndex[nameIndex]--;
       } else {
         playerNameCharIndex[nameIndex] = noOfLetters - 2;
-        Serial.println(playerNameCharIndex[nameIndex]);
+//        Serial.println(playerNameCharIndex[nameIndex]);
       }
     }
   
@@ -956,8 +1324,8 @@ void updateChangeName() {
         playerNameCharIndex[nameIndex]++;
       } else {
         playerNameCharIndex[nameIndex] = 0;
-        Serial.println(playerNameCharIndex[nameIndex]);
-        Serial.println("---------");
+//        Serial.println(playerNameCharIndex[nameIndex]);
+//        Serial.println("---------");
       }
     }
   }
@@ -1319,6 +1687,27 @@ void updateSettingsArrow() {
 
 
 
+
+//
+//
+//char* top[9];
+//bool highscoresChanged = false;
+//byte xHighscoresArrowPos = 0;
+//byte xHighscoresArrowLastPos = 0;
+//const byte highscoresArrowArraySize = 13;
+//
+//char* highscores[highscoresArrowArraySize] = {
+//  "BACK TO MENU",
+//  "GODE MODE:",
+//  top[0], top[1], top[2],
+//  "HARD:",
+//  top[3], top[4], top[5],
+//  "NORMAL:",
+//  top[6], top[7], top[8]
+//};
+
+
+
 void updateHighscoresDisplay() {
   lcd.createChar(0, formsArray[3]);
   lcd.createChar(1, formsArray[7]);
@@ -1595,7 +1984,7 @@ void prepareSetupOnStart() {
   lcd.print("  ");
   lcd.write(byte(0));
 
-  delay(5000);
+  delay(4000);
 
   lcd.setCursor(0, 0);
   lcd.write(byte(0));
@@ -1605,7 +1994,7 @@ void prepareSetupOnStart() {
 //  lcd.write(byte(0));
   lcd.print(" SLEEPY STUDIOS ");
 
-  delay(3000);
+  delay(2000);
   
   lcd.clear();
   enterMenu();
@@ -1636,7 +2025,7 @@ void updateMenuDisplay() {
     lcd.write(byte(1));
     for( int row = 0; row < noOfLcdRows; row++) {
       lcd.setCursor(1, row);
-      Serial.println(menuList[xMenuArrowPos + row]);
+//      Serial.println(menuList[xMenuArrowPos + row]);
       lcd.print(menuList[xMenuArrowPos + row]);
     }
   } else {
@@ -1646,7 +2035,7 @@ void updateMenuDisplay() {
     lcd.write(byte(0));
     for( int row = noOfLcdRows - 1; row >= 0; row--) {
       lcd.setCursor(1, row - 1);
-      Serial.println(menuList[xMenuArrowPos - row]);
+//      Serial.println(menuList[xMenuArrowPos - row]);
       lcd.print(menuList[xMenuArrowPos - row]);
     }
   } 
@@ -1664,7 +2053,7 @@ void updateStartGameDifDisplay() {
   lcd.print("SET DIFFICULTY");
 
   lcd.setCursor(1, 1);
-  Serial.println(difficulties[difficulty]);
+//  Serial.println(difficulties[difficulty]);
   lcd.print(difficulties[difficulty]);
 }
 
@@ -1681,7 +2070,24 @@ void updateDifficulty() {
     if (previousReading != reading){
       buttonState = reading;
       if (buttonState == LOW){
-        //////////////////////////////////////////////////////////////////////
+        switch (difficulty) {
+          case 2:
+            counterLevelBasedOnDiff = 20;
+            break;
+            
+          case 3:
+            counterLevelBasedOnDiff = 25;
+            break;
+            
+          case 4: 
+            counterLevelBasedOnDiff = 40;
+            break;
+
+          default:
+            counterLevelBasedOnDiff = 10;
+            break;
+        }
+        
         upOrDown = true;
         updateStartGameChangeNameDisplay();
         menuState = 2;
@@ -1709,7 +2115,6 @@ void updateDifficulty() {
 
   if (difficulty != lastDifficulty) {
     difficultyChanged = true;
-//    updateStartGameDifDisplay();
   }
   
 }
@@ -1799,11 +2204,24 @@ void updateMenuArrow() {
     } else {
       upOrDown = true;
     }
-    Serial.println("hello there");
+//    Serial.println("hello there");
     
   }
   
 }
+
+
+
+void updatePlayerLed() {
+//  Serial.println(playerInterval);
+  if (playerInterval >= playerIntervalMax) {
+//    Serial.println(playerIntervalMax);
+    playerInterval = 0;
+    playerLight = !playerLight;
+    lc.setLed(0, xPos, yPos, playerLight);
+  }
+}
+
 
 void updateMatrix() {
   for (int row = 0; row < matrixSize; row++) {
@@ -1812,11 +2230,6 @@ void updateMatrix() {
     }
   }
   
-  if (onLightedLed == false) {
-    lc.setLed(0, xPos, yPos, true);
-  } else {
-    lc.setLed(0, xPos, yPos, false);
-  }
 }
 
 void updatePositions() {
@@ -1889,24 +2302,24 @@ void updatePositions() {
       yPos = yLastPos;
     }
 
-    if (xPos > xLastPos) {
+    if (xPos > xLastPos && firstRound == false) {
       noOfMoves[0]--; 
     }
-    if (xPos < xLastPos) {
+    if (xPos < xLastPos && firstRound == false) {
       noOfMoves[1]--; 
     }
-    if (yPos > yLastPos) {
+    if (yPos > yLastPos && firstRound == false) {
       noOfMoves[2]--; 
     }
-    if (yPos < yLastPos) {
+    if (yPos < yLastPos && firstRound == false) {
       noOfMoves[3]--; 
     }
 
-    Serial.println("///////////////");
+//    Serial.println("///////////////");
     for(int i = 0; i <= 3; i++) {
-      Serial.println(noOfMoves[i]);
+//      Serial.println(noOfMoves[i]);
     }
-    Serial.println("///////////////");
+//    Serial.println("///////////////");
     
     matrix[xPos][yPos] = 1;
     
@@ -1972,5 +2385,9 @@ void deadFace() {
   lc.setLed(0, 5, 4, true);
   lc.setLed(0, 5, 5, true);//
   lc.setLed(0, 6, 6, true);//
-  delay(3000);
+  if (difficulty < 4) {
+    delay(1400);
+  } else {
+    delay(700);
+  }
 }
