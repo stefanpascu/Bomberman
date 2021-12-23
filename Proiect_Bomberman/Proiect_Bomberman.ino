@@ -176,6 +176,7 @@ void loop() {
     // matrix display logic
       updateMatrix();
       matrixChanged = false;
+      noNewTone(buzzerPin);
     }
         
   }
@@ -1213,6 +1214,7 @@ void updatePositions() {
   }
   // tests if the player was on a lighted led, if so, it lets it ligthed, otherwise it turns the led off
   if (xPos != xLastPos || yPos != yLastPos) {
+    NewTone (buzzerPin, NOTE_E4);
     matrixChanged = true;
     if (onLightedLed == false) {
       matrix[xLastPos][yLastPos] = 0;
