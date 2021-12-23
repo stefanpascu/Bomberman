@@ -9,6 +9,10 @@
 <br><br>
 
   ### Components: LCD, Joystick, Buzzer, Potentiometer and 8x8 Led Matrix.
+  <details>
+  
+<summary>Descriptions</summary>
+  
 #### 1. LCD
   It is used to display the menu and all the functionalities it posseses. It also presents during the game the following: player's remaining lives, player's score and the number of moves he is allowed to perform.
 
@@ -31,5 +35,6 @@
   
 #### 4. Led Matrix
   It displays the game during playtime and prints levels, the player and different emojis to reflect the player's actions
-  
+
+  <details/>
 <br><br>
