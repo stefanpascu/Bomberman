@@ -5,6 +5,11 @@
 <br>
 #### Menu
   The player can modify contrast and brightness displayed, can browse and reset old highscores and change the game's difficulty and his/her own name.
+<br>
+### Youtube Link: https://youtu.be/Kq-6B44mNdg
+<br>
+
+<img src="https://user-images.githubusercontent.com/41235115/147303565-d1d8c525-2a04-43aa-b992-c61254b40229.jpeg" data-canonical-src="https://user-images.githubusercontent.com/41235115/147303565-d1d8c525-2a04-43aa-b992-c61254b40229.jpeg" width="300" height="600" />
 
 <br><br>
 
@@ -36,5 +41,13 @@
 #### 4. Led Matrix
   It displays the game during playtime and prints levels, the player and different emojis to reflect the player's actions
 
-  <details/>
-<br><br>
+  </details>
+  
+<br>
+<br>
+
+<p float="left">
+  <img src="https://user-images.githubusercontent.com/41235115/147303639-bcac9ce0-3a92-45a9-bc71-c8dad39cb656.jpeg" width="300" />
+  <img src="https://user-images.githubusercontent.com/41235115/147303658-8b5fab15-e795-464f-a24f-783c3864cdeb.jpeg" width="300" /> 
+  <img src="https://user-images.githubusercontent.com/41235115/147303676-b729e914-4bbc-48e8-a1bd-960da8510944.jpeg" width="300" />
+</p>
