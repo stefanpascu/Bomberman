@@ -1,5 +1,8 @@
 # Bomberman
 ### Description
+
+##### <future more detailed description and libraries used>
+
 #### Playthrough
   The player must dodge the lighted leds as they change faster and faster, and also try to move as little as possible.
 <br>
